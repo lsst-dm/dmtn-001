@@ -37,9 +37,9 @@
 
    Feel free to delete this instructional comment.
 
-
-The Summer 2015 version of the LSST software stack does not work with
-OS X El Capitan due to the new `System Integrity Protection
+OS X 10.11 (El Capitan) is not compatible with any version of the LSST
+software stack, including Summer 2015. This is due to the
+new `System Integrity Protection
 <https://developer.apple.com/library/prerelease/ios/documentation/Security/Conceptual/System_Integrity_Protection_Guide/System_Integrity_Protection_Guide.pdf>`_ (SIP)
 feature. As well as preventing anyone from modifying system files,
 protected binaries no longer inherit linker environment variables. In
@@ -55,9 +55,12 @@ SIP only affects Apple-supplied binaries. For the stack the issue is
 that Python scripts and ``scons`` are always run with a shebang (``#!``)
 line of ``#! /usr/bin/env python``. Since ``env`` is in ``/usr/bin`` it is
 covered by SIP protections such that the library load path environment
-variable is stripped before being executed. ``scons`` runs the tests and
-so the tests do not have the correct environment; applications such as
-``processCcd.py`` will also not function properly.
+variable is stripped before being executed. ``scons`` is executed via
+``env`` and runs the tests in a subprocess which will inherit a
+stripped environment and will therefore fail. Furthermore, executable
+scripts in the ``bin`` directory will also have the environment
+stripped if those scripts are executed via ``env``, and will therefore
+fail to load C++ python modules.
 
 Changes to the Stack
 ====================
@@ -71,15 +74,17 @@ build on El Capitan:
    `scons` to ensure that all tests are executed with the correct
    environment enabled (``scons`` launches tests as sub processes).
 
-2. ``/usr/bin/env`` can no longer be used to run python scripts from the
-   command line. The shebang line must point to an explicit python
-   executable and that executable can not be the system python. To
-   allow the rewriting of the shebang to occur a new ``scons`` build
-   target has been that will copy files from a ``bin.src`` directory to
-   a ``bin`` directory, modifying them during the copy. The rewriting
-   does not happen on all platforms (although that is not guaranteed
-   behavior for the future) and only files requiring rewrites should
-   be placed in that directory.
+2. ``/usr/bin/env`` can no longer be used to run scripts from the
+   command line. The shebang line must point to an explicit executable
+   and that executable can not be in ``/usr/bin`` or ``/bin``. For
+   Python scripts the shebang must point to a user-installed Python
+   binary. To allow the rewriting of the shebang to occur a new
+   ``scons`` build target has been created, ``shebang``, that will
+   copy files from a ``bin.src`` directory to a ``bin`` directory,
+   modifying them during the copy. The rewriting does not happen on
+   all platforms (although that is not guaranteed behavior for the
+   future) and only files requiring rewrites should be placed in that
+   directory.
 
 The reason for the new environment variable specifically for running
 tests is that it is difficult to ensure that the build is being
@@ -90,11 +95,11 @@ people may use to trigger builds will also have their environment
 stripped.
 
 One additional complication on El Capitan is that Apple no longer
-distribute the OpenSSL include files. Apple have deprecated the use of
-their OpenSSL since OS X 10.7 (Lion) and in El Capitan they finally
-removed it (the libraries remain for binary compatibility). The
-``activemqcpp`` and ``libevent`` packages had to be modified to
-disable the use of SSL on OS X.
+distributes the OpenSSL include files. Apple deprecated the use of
+OpenSSL in OS X 10.7 (Lion) and removed the include files in El Capitan
+(the libraries remain for binary compatibility). The
+``activemqcpp`` and ``libevent`` packages were modified to
+disable the use of SSL on OS X. [#f1]_
 
 At the time of writing ``lsst_distrib`` builds correctly on El Capitan.
 
@@ -121,11 +126,13 @@ For developers the following must be remembered when modifying packages:
 3. People can no longer build or use the stack with the system Python.
 
 4. Executable shell scripts should ensure they run ``setup`` rather than
-   relying on the setup of the parent shell.
+   relying on the setup of the parent shell. This is because
+   ``DYLD_LIBRARY_PATH`` will no longer be guaranteed to be set in the
+   subshell. For an explicit discussion of this see :ref:`sip-examples`.
 
-5. If a package requires OpenSSL consider optionally using Apple
-   CommonCrypto. Otherwise OpenSSL may have to be made an explicit
-   pre-requisite on OS X.
+5. If a package requires OpenSSL, consider supporting both OpenSSL and
+   Apple CommonCrypto. Otherwise OpenSSL may have to be made an explicit
+   prerequisite on OS X.
 
 
 Remaining Issues
@@ -153,6 +160,8 @@ Relevant JIRA Tickets
 * `DM-4334 <http://jira.lsstcorp.org/browse/DM-4334>`_ : Disable SSL on ``libevent``.
 * `DM-3803 <http://jira.lsstcorp.org/browse/DM-3803>`_ : Discussion of deprecated SSL on OS X as used by Qserv.
 
+.. _sip-examples:
+
 Example SIP Behavior
 =====================
 
@@ -167,6 +176,36 @@ The following code
 generates a ``KeyError`` on El Capitan. Running it as ``python
 test.py`` correctly prints the value of the environment variable.
 
+Similarly shell scripts, which always tend to use shells from
+``/bin`` or ``/usr/bin``, will therefore also lose
+``DYLD_LIBRARY_PATH``. This script:
+
+.. code-block:: shell
+
+   #!/bin/bash
+
+   echo DYLD: $DYLD_LIBRARY_PATH
+   echo LSST: $LSST_LIBRARY_PATH
+
+will only result in values appearing from the second line.
+One solution is to explicitly set the path at the start of the script:
+
+.. code-block:: shell
+
+   #!/bin/bash
+
+   # On OS X El Capitan we need to pass through the library load path
+   if [[ $(uname -s) = Darwin* ]]; then
+       if [[ -z "$DYLD_LIBRARY_PATH" ]]; then
+           export DYLD_LIBRARY_PATH=$LSST_LIBRARY_PATH
+       fi
+   fi
+
+This approach is used in the `LSST stack demo
+<https://github.com/lsst/lsst_dm_stack_demo/blob/master/bin/demo.sh>`_. [#f2]_
+The alternative is to explicitly call ``setup`` in the script to
+ensure that the variables are set.
+
 SConscript
 ==========
 
@@ -177,3 +216,12 @@ The following code can be used in the ``bin.src`` directory to configure ``scons
    from lsst.sconsUtils import scripts
    scripts.BasicSConscript.shebang()
 
+.. rubric:: Footnotes
+
+.. [#f1] The LSST stack does not use SSL capabilities in
+         ``activemqcpp`` or ``libevent`` so there is no impact in
+         removing SSL support in these packages.
+
+.. [#f2] Interestingly, if the shebang is removed and replaced with a
+         blank line, the environment is inherited without being
+         filtered by the default POSIX shell.
