@@ -43,7 +43,7 @@ new `System Integrity Protection
 <https://developer.apple.com/library/prerelease/ios/documentation/Security/Conceptual/System_Integrity_Protection_Guide/System_Integrity_Protection_Guide.pdf>`_ (SIP)
 feature. As well as preventing anyone from modifying system files,
 protected binaries no longer inherit linker environment variables. In
-particular ``DYLD_LIBRARY_PATH`` is ignored. The stack and EUPS
+particular :envvar:`DYLD_LIBRARY_PATH` is ignored. The stack and EUPS
 completely rely on this environment variable and without it any
 packages using C++ will not import.
 
@@ -51,15 +51,15 @@ A normal stack build of Summer 2015 fails almost immediately in the
 ``base`` package as that is the first that attempts to import C++
 library code into python.
 
-SIP only affects Apple-supplied binaries. For the stack the issue is
-that Python scripts and ``scons`` are always run with a shebang (``#!``)
-line of ``#! /usr/bin/env python``. Since ``env`` is in ``/usr/bin`` it is
-covered by SIP protections such that the library load path environment
-variable is stripped before being executed. ``scons`` is executed via
-``env`` and runs the tests in a subprocess which will inherit a
+:abbr:`SIP (System Integrity Protection)` only affects Apple-supplied binaries. For the stack the issue is
+that Python scripts and :command:`scons` are always run with a shebang (``#!``)
+line of ``#! /usr/bin/env python``. Since :command:`env` is in :file:`/usr/bin` it is
+covered by :abbr:`SIP (System Integrity Protection)` protections such that the library load path environment
+variable is stripped before being executed. :command:`scons` is executed via
+:command:`env` and runs the tests in a subprocess which will inherit a
 stripped environment and will therefore fail. Furthermore, executable
-scripts in the ``bin`` directory will also have the environment
-stripped if those scripts are executed via ``env``, and will therefore
+scripts in the :file:`bin` directory will also have the environment
+stripped if those scripts are executed via :command:`env`, and will therefore
 fail to load C++ python modules.
 
 Changes to the Stack
@@ -69,18 +69,18 @@ The following changes were required to enable the LSST software to
 build on El Capitan:
 
 1. Modify EUPS table files to introduce a new environment variable,
-   ``LSST_LIBRARY_PATH``, that looks identical to ``DYLD_LIBRARY_PATH``
-   but which is not intercepted by SIP. This variable is used inside
-   `scons` to ensure that all tests are executed with the correct
-   environment enabled (``scons`` launches tests as sub processes).
+   :envvar:`LSST_LIBRARY_PATH`, that looks identical to :envvar:`DYLD_LIBRARY_PATH`
+   but which is not intercepted by :abbr:`SIP (System Integrity Protection)`. This variable is used inside
+   :command:`scons` to ensure that all tests are executed with the correct
+   environment enabled (:command:`scons` launches tests as sub processes).
 
-2. ``/usr/bin/env`` can no longer be used to run scripts from the
+2. :command:`/usr/bin/env` can no longer be used to run scripts from the
    command line. The shebang line must point to an explicit executable
    and that executable can not be in ``/usr/bin`` or ``/bin``. For
    Python scripts the shebang must point to a user-installed Python
    binary. To allow the rewriting of the shebang to occur a new
-   ``scons`` build target has been created, ``shebang``, that will
-   copy files from a ``bin.src`` directory to a ``bin`` directory,
+   :command:`scons` build target has been created, ``shebang``, that will
+   copy files from a :file:`bin.src` directory to a :file:`bin` directory,
    modifying them during the copy. The rewriting does not happen on
    all platforms (although that is not guaranteed behavior for the
    future) and only files requiring rewrites should be placed in that
@@ -90,9 +90,9 @@ The reason for the new environment variable specifically for running
 tests is that it is difficult to ensure that the build is being
 triggered with every parent process being correctly configured to pass
 through the library path. At the very least we would have to fix
-``eups``, ``scons`` and ``lsstsw`` and even so any shell scripts that
-people may use to trigger builds will also have their environment
-stripped.
+:command:`eups`, :command:`scons` and :command:`lsstsw` and even so
+any shell scripts that people may use to trigger builds will also have
+their environment stripped.
 
 One additional complication on El Capitan is that Apple no longer
 distributes the OpenSSL include files. Apple deprecated the use of
@@ -104,11 +104,11 @@ disable the use of SSL on OS X. [#f1]_
 At the time of writing ``lsst_distrib`` builds correctly on El Capitan.
 
 One other approach was considered and that was to copy
-``/usr/bin/env`` to a new location and change every script to use the
-new env. This would have worked because the copied ``env`` would no
-longer be susceptible to SIP restrictions. The consensus was that this
-solution of a new ``env`` did not feel acceptable and would require
-too many edge cases in the documentation.
+:command:`/usr/bin/env` to a new location and change every script to
+use the new :command:`env`. This would have worked because the copied
+:command:`env` would no longer be susceptible to :abbr:`SIP (System Integrity Protection)` restrictions. The
+consensus was that this solution of a new :command:`env` did not feel
+acceptable and would require too many edge cases in the documentation.
 
 
 Porting to El Capitan
@@ -116,18 +116,18 @@ Porting to El Capitan
 
 For developers the following must be remembered when modifying packages:
 
-1. Ensure that ``LSST_LIBRARY_PATH`` appears wherever
-   ``DYLD_LIBRARY_PATH`` appears in a table file.
+1. Ensure that :envvar:`LSST_LIBRARY_PATH` appears wherever
+   :envvar:`DYLD_LIBRARY_PATH` appears in a table file.
 
-2. Python scripts should be placed in the ``bin.src`` directory and not
-   the ``bin`` directory. A suitable ``SConscript`` file is shown at the end
+2. Python scripts should be placed in the :file:`bin.src` directory and not
+   the :file:`bin` directory. A suitable :file:`SConscript` file is shown at the end
    of this document and can also be found in the `package template repository <https://github.com/lsst/templates>`_.
 
 3. People can no longer build or use the stack with the system Python.
 
-4. Executable shell scripts should ensure they run ``setup`` rather than
+4. Executable shell scripts should ensure they run :command:`setup` rather than
    relying on the setup of the parent shell. This is because
-   ``DYLD_LIBRARY_PATH`` will no longer be guaranteed to be set in the
+   :envvar:`DYLD_LIBRARY_PATH` will no longer be guaranteed to be set in the
    subshell. For an explicit discussion of this see :ref:`sip-examples`.
 
 5. If a package requires OpenSSL, consider supporting both OpenSSL and
@@ -146,8 +146,8 @@ to work on El Capitan:
    most of the targets are hand-crafted. The test target does not use
    the ``sconsUtils`` test framework so all the tests fail.
 
-2. ``qserv`` uses a bespoke ``scons`` configuration system that may
-   need to be taught how to inherit ``LSST_LIBRARY_PATH`` for the test
+2. ``qserv`` uses a bespoke :command:`scons` configuration system that may
+   need to be taught how to inherit :envvar:`LSST_LIBRARY_PATH` for the test
    environment. Additionally ``qserv`` uses OpenSSL when calculating
    digests and these will have to be ported to CommonCrypto.
 
@@ -173,12 +173,12 @@ The following code
    import os
    print(os.environ["DYLD_LIBRARY_PATH"])
 
-generates a ``KeyError`` on El Capitan. Running it as ``python
-test.py`` correctly prints the value of the environment variable.
+generates a ``KeyError`` on El Capitan. Running it as
+:samp:`python test.py` correctly prints the value of the environment variable.
 
 Similarly shell scripts, which always tend to use shells from
-``/bin`` or ``/usr/bin``, will therefore also lose
-``DYLD_LIBRARY_PATH``. This script:
+:file:`/bin` or :file:`/usr/bin`, will therefore also lose
+:envvar:`DYLD_LIBRARY_PATH`. This script:
 
 .. code-block:: shell
 
@@ -203,13 +203,13 @@ One solution is to explicitly set the path at the start of the script:
 
 This approach is used in the `LSST stack demo
 <https://github.com/lsst/lsst_dm_stack_demo/blob/master/bin/demo.sh>`_. [#f2]_
-The alternative is to explicitly call ``setup`` in the script to
+The alternative is to explicitly call :command:`setup` in the script to
 ensure that the variables are set.
 
 SConscript
 ==========
 
-The following code can be used in the ``bin.src`` directory to configure ``scons``:
+The following code can be used in the :file:`bin.src` directory to configure :command:`scons`:
 
 .. code-block:: python
 
@@ -225,3 +225,14 @@ The following code can be used in the ``bin.src`` directory to configure ``scons
 .. [#f2] Interestingly, if the shebang is removed and replaced with a
          blank line, the environment is inherited without being
          filtered by the default POSIX shell.
+
+.. envvar:: DYLD_LIBRARY_PATH
+
+  OS X equivalent of ``LD_LIBRARY_PATH``. Specifies the search path
+  for loading shared libraries.
+
+.. envvar:: LSST_LIBRARY_PATH
+
+ Equivalent to :envvar:`DYLD_LIBRARY_PATH` but set by EUPS and
+ guaranteed to not be stripped by :abbr:`SIP (System Integrity Protection)` when sub-processes
+ are launched.
