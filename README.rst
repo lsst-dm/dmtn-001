@@ -4,7 +4,7 @@ DMTN-001 Porting the stack to OS X El Capitan
 
 Dealing with System Integrity Protection on OS X El Capitan
 
-View this report at http://dmtn-001.lsst.codes
+View this report at http://dmtn-001.lsst.io
 
 
 
