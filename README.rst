@@ -36,7 +36,7 @@ A good primer on reStructuredText is available at http://docs.lsst.codes/en/late
 Remember that images and other types of assets should be stored in the ``_static/`` directory of this repository.
 See ``_static/README.rst`` for more information.
 
-The published report at http://dmtn-001.lsst.codes will be automatically rebuilt whenever you push your changes to the ``master`` branch on `GitHub <https://github.com/lsst-dm/dmtn-001>`_.
+The published report at http://dmtn-001.lsst.io will be automatically rebuilt whenever you push your changes to the ``master`` branch on `GitHub <https://github.com/lsst-dm/dmtn-001>`_.
 
 Updating Metadata
 =================
