@@ -38,7 +38,7 @@
    Feel free to delete this instructional comment.
 
 OS X 10.11 (El Capitan) is not compatible with any version of the LSST
-software stack, including Summer 2015. This is due to the
+software stack, up to and including Summer 2015. This is due to the
 new `System Integrity Protection
 <https://developer.apple.com/library/prerelease/ios/documentation/Security/Conceptual/System_Integrity_Protection_Guide/System_Integrity_Protection_Guide.pdf>`_ (SIP)
 feature. As well as preventing anyone from modifying system files,
@@ -61,6 +61,8 @@ stripped environment and will therefore fail. Furthermore, executable
 scripts in the :file:`bin` directory will also have the environment
 stripped if those scripts are executed via :command:`env`, and will therefore
 fail to load C++ python modules.
+
+The first release with a functioning stack on El Capitan was ``w_2015_47``.
 
 Changes to the Stack
 ====================
